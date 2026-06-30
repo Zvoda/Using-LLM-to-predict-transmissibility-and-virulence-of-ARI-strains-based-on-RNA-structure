@@ -1,72 +1,51 @@
 # Using-LLM-to-predict-transmissibility-and-virulence-of-ARI-strains-based-on-RNA-structure
 
-### Описание работы
+## Description
 
-Основная тема исследования связана с использованием больших языковых моделей для прогнозирования эпидемиологически значимых свойств штаммов ОРВИ, таких как трансмиссивность и вирулентность. Однако прямое прогнозирование этих характеристик требует построения сложной многоуровневой модели, связывающей структуру РНК, свойства вирусных белков, иммунный ответ и распространение инфекции в популяции.
+This project uses **Protein Language Models (ESM-2)** to predict epidemiological parameters of SARS-CoV-2 variants directly from the spike protein amino acid sequence:
 
-В рамках данной лабораторной работы реализован промежуточный этап этой цепочки:
+- **Transmissibility** — basic reproduction number **R₀**
+- **Virulence** — two coefficients:
+  - **Zvoda1** = Deaths / Hospitalizations
+  - **Zvoda2** = Hospitalizations / All cases
 
-```
-РНК → Spike-белок → ESM-2 → Эмбеддинг → Антигенное расстояние → Immune Escape Score
-```
-Данная работа посвящена исследованию возможностей Protein Language Models (PLM) для анализа вирусных последовательностей и извлечения биологически значимой информации из белков вируса.
+The system consists of **two independent regression models** trained separately for maximum accuracy.
 
+## Data
 
-## Используемые данные
+Synthetic sequences generated from real mutations (GISAID/Nextstrain) for 5 variants:
 
-Для эксперимента рассматриваются варианты SARS-CoV-2:
+| Variant | Samples | Role |
+| :--- | :--- | :--- |
+| BA.1, BA.2, BA.5 | 600 | Train |
+| XBB.1.5, JN.1 | 400 | Test (holdout) |
 
-* Wuhan
-* Alpha
-* Beta
-* Gamma
-* Delta
-* BA.1
-* BA.2
-* BA.5
-* XBB
-* JN.1
+## Model Architecture
 
-Для каждого варианта используется аминокислотная последовательность Spike-белка.
+Uses **ESM-2** (35M parameters, `esm2_t12_35M_UR50D`) as backbone.
 
-## Используемая модель
+- **Model 1 (R₀):** Single-task regression head
+- **Model 2 (Virulence):** Two independent heads for Zvoda1 and Zvoda2 (multi-task)
 
-В работе применяется модель:
+## Results (Holdout: XBB.1.5, JN.1)
 
-**ESM-2**
+**Transmissibility:**
 
-Модель преобразует белковую последовательность в вектор признаков размерностью 480, отражающий её биологические свойства.
+| Variant | True R₀ | Pred R₀ | Error |
+| :--- | :--- | :--- | :--- |
+| XBB.1.5 | 1.713 | 1.388 | 19.0% |
+| JN.1 | 2.154 | 1.442 | 33.0% |
 
+**Virulence:**
 
-## Полученные результаты
-
-В ходе выполнения работы были получены:
-
-* эмбеддинги ESM-2 для всех исследуемых вариантов;
-* матрица попарных расстояний между вариантами;
-* PCA-карта пространства эмбеддингов;
-* дендрограмма кластеризации;
-* показатель Immune Escape Score;
-
-Полученные результаты показывают, что эмбеддинги ESM-2 содержат информацию о различиях между вариантами вируса и могут использоваться для построения количественных характеристик антигенного сходства.
+| Variant | True Zvoda1 | Pred Zvoda1 | Error |
+| :--- | :--- | :--- | :--- |
+| XBB.1.5 | 0.1361 | 0.1435 | 5.4% |
+| JN.1 | 0.1400 | 0.1427 | 1.9% |
 
 
-## Связь с трансмиссивностью и вирулентностью
+## Limitations
 
-Трансмиссивность и вирулентность не рассчитываются непосредственно в данной работе. Тем не менее, получаемый показатель Immune Escape Score может рассматриваться как один из факторов, влияющих на эпидемиологические свойства вируса. Логическая цепочка выглядит следующим образом:
-
-```
-РНК
- ↓
-Белок Spike
- ↓
-Антигенные свойства
- ↓
-Иммунное ускользание
- ↓
-Распространение вируса в популяции
- ↓
-Трансмиссивность и эпидемиологическая динамика
-```
-
-Таким образом, реализованный модуль может использоваться как промежуточный компонент более сложных моделей прогнозирования трансмиссивности и вирулентности штаммов ОРВИ.
+- Synthetic data (real GISAID validation needed)
+- Only spike protein analyzed
+- Underestimation of R₀ for new variants (extrapolation issue)
